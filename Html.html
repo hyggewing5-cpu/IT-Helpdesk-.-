@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <?!= include('Styles'); ?>
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+  <img class="logo" src="<?= cfg.LOGO_URL ?>" alt="โลโก้" onerror="this.style.visibility='hidden'">
+  <div class="brand"><?= cfg.ORG_NAME ?><small><?= cfg.SYSTEM_NAME ?></small></div>
+  <div class="spacer"></div>
+  <a class="top-link" href="<?= cfg.APP_URL ?>?page=admin">🔐 <span>เจ้าหน้าที่</span></a>
+</div></header>
+
+<section class="hero">
+  <h1>แจ้งซ่อม / ขอรับบริการด้านสารสนเทศ</h1>
+  <p>แจ้งได้ทันทีโดยไม่ต้องเข้าสู่ระบบ · แนบรูปถ่ายปัญหาได้</p>
+</section>
+
+<main class="container narrow overlap">
+  <div class="tabs">
+    <button class="tab active" data-tab="form">📝 แจ้งซ่อม</button>
+    <button class="tab" data-tab="track">🔎 ติดตามงาน</button>
+  </div>
+
+  <section id="tab-form" class="card">
+    <form id="frmReport" autocomplete="on">
+      <h3 class="sec">👤 ข้อมูลผู้แจ้ง</h3>
+      <div class="grid g2">
+        <div><label>ชื่อ-สกุล ผู้แจ้ง <span class="req">*</span></label><input name="reporterName" required maxlength="100" placeholder="ยศ ชื่อ สกุล"></div>
+        <div><label>หมายเลขติดต่อ <span class="req">*</span></label><input name="phone" required maxlength="30" inputmode="tel" placeholder="เช่น 6-0449 หรือ 08x-xxx-xxxx"></div>
+        <div><label>หน่วยงาน / แผนก</label><input name="department" maxlength="100" placeholder="เช่น แผนกผู้ป่วยนอก"></div>
+        <div><label>ห้องปฏิบัติงาน / สถานที่ <span class="req">*</span></label><input name="room" required maxlength="100" placeholder="เช่น ห้องเวชระเบียน ชั้น 1"></div>
+      </div>
+
+      <h3 class="sec">🛠️ รายละเอียดการแจ้ง</h3>
+      <div class="grid g2">
+        <div><label>ประเภทงาน</label><select name="category" id="selCat"></select></div>
+        <div><label>เลขครุภัณฑ์ / ชื่อเครื่อง</label><input name="assetCode" maxlength="50" placeholder="ถ้ามี"></div>
+      </div>
+      <label class="mt">ระดับความเร่งด่วน <span class="req">*</span></label>
+      <div class="prio" id="prioBox"></div>
+      <label class="mt">รายละเอียดปัญหา <span class="req">*</span></label>
+      <textarea name="detail" required maxlength="2000" placeholder="อธิบายอาการ เช่น เปิดเครื่องไม่ติด พิมพ์ไม่ออก เข้าโปรแกรมไม่ได้ ..."></textarea>
+
+      <label class="mt">🖼️ แนบรูปถ่ายปัญหา (ถ้ามี)</label>
+      <input type="file" id="imgFile" accept="image/*" style="padding:8px">
+      <small class="muted">รองรับไฟล์ภาพ JPG, PNG ขนาดไม่เกิน 5MB</small>
+
+      <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <button class="btn block mt" id="btnSubmit" type="submit">📨 ส่งแจ้งซ่อม</button>
+    </form>
+  </section>
+
+  <section id="tab-track" class="card hidden">
+    <h3 class="sec">🔎 ติดตามสถานะงาน</h3>
+    <form id="frmTrack" class="grid g3" style="align-items:end">
+      <div><label>เลขที่ใบแจ้ง</label><input id="tId" required placeholder="เช่น IT680412-001" style="text-transform:uppercase"></div>
+      <div><label>หมายเลขติดต่อที่ใช้แจ้ง</label><input id="tPhone" required inputmode="tel"></div>
+      <div><button class="btn block" id="btnTrack">ค้นหา</button></div>
+    </form>
+    <div id="recent" class="mt"></div>
+    <div id="trackOut"></div>
+  </section>
+</main>
+
+<footer class="footer"><div class="footer-inner">
+  <div>© <span id="yr"></span> <?= cfg.ORG_NAME ?></div>
+  <div class="dev">พัฒนาโดย <b><?= cfg.DEV_NAME ?></b><br><?= cfg.DEV_POSITION ?> · โทร. <a href="tel:<?= cfg.DEV_PHONE ?>"><?= cfg.DEV_PHONE ?></a></div>
+</div></footer>
+
+<?!= include('Common'); ?>
+<script>
+const CFG = <?!= JSON.stringify(cfg) ?>;
+const PRIO_DESC = {'วิกฤต':'ระบบหลักล่ม/กระทบหลายคน','สูง':'ใช้งานไม่ได้','ปกติ':'ใช้งานได้บางส่วน','ต่ำ':'ขอคำแนะนำ/ทั่วไป'};
+let LAST = null;
+
+$('yr').textContent = new Date().getFullYear() + 543;
+$('selCat').innerHTML = CFG.CATEGORIES.map(c => `<option>${esc(c)}</option>`).join('');
+$('prioBox').innerHTML = CFG.PRIORITIES.map((p, i) =>
+  `<input type="radio" name="priority" id="pr${i}" value="${esc(p)}" ${p === 'ปกติ' ? 'checked' : ''}>
+   <label for="pr${i}" class="p${i + 1}">${esc(p)}<small>${esc(PRIO_DESC[p] || '')}</small></label>`).join('');
+
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+function showTab(name){
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  $('tab-form').classList.toggle('hidden', name !== 'form');
+  $('tab-track').classList.toggle('hidden', name !== 'track');
+  if (name === 'track') renderRecent();
+}
+
+$('frmReport').addEventListener('submit', async e => {
+  e.preventDefault();
+  const form = e.target;
+  const data = Object.fromEntries(new FormData(form));
+  const fileInput = $('imgFile');
+  const btn = $('btnSubmit');
+
+  busy(btn, true, 'กำลังอัปโหลดข้อมูล...');
+  try {
+    if (fileInput.files && fileInput.files[0]) {
+      const file = fileInput.files[0];
+      if (file.size > 5 * 1024 * 1024) throw new Error('ขนาดรูปภาพใหญ่เกิน 5MB กรุณาเลือกไฟล์ที่เล็กกว่า');
+      data.imageName = file.name;
+      data.imageType = file.type;
+      data.imageFile = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    const r = await call('submitTicket', data);
+    LAST = { id: r.ticketId, phone: data.phone };
+    saveRecent(r.ticketId);
+    form.reset();
+    openModal(`<div class="center">
+      <div class="big-icon">✅</div><h2 style="margin:6px 0">ส่งแจ้งซ่อมเรียบร้อย</h2>
+      <p class="muted">กรุณาจดเลขที่ใบแจ้งไว้สำหรับติดตามงาน</p>
+      <div class="ticket-no">${esc(r.ticketId)}</div>
+      <p class="muted">เจ้าหน้าที่ได้รับการแจ้งเตือนและรูปถ่ายแล้ว</p>
+      <div class="row-btn" style="justify-content:center">
+        <button class="btn light" onclick="copyId()">📋 คัดลอกเลขที่</button>
+        <button class="btn" onclick="trackLast()">🔎 ติดตามงานนี้</button>
+        <button class="btn light" onclick="closeModal()">ปิด</button>
+      </div></div>`);
+  } catch (err) { toast(errMsg(err), 'error'); }
+  finally { busy(btn, false); }
+});
+
+function copyId(){
+  const txt = LAST.id;
+  const fallback = () => { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); };
+  (navigator.clipboard ? navigator.clipboard.writeText(txt).catch(fallback) : Promise.resolve(fallback()))
+    .then(() => toast('คัดลอกเลขที่ ' + txt + ' แล้ว', 'success'));
+}
+function trackLast(){ closeModal(); showTab('track'); $('tId').value = LAST.id; $('tPhone').value = LAST.phone; doTrack(); }
+
+$('frmTrack').addEventListener('submit', e => { e.preventDefault(); doTrack(); });
+async function doTrack(){
+  const btn = $('btnTrack'); busy(btn, true, 'กำลังค้นหา...'); $('trackOut').innerHTML = '';
+  try { renderTrack(await call('trackTicket', $('tId').value.trim(), $('tPhone').value.trim())); }
+  catch (err) { $('trackOut').innerHTML = `<div class="empty">❌ ${esc(errMsg(err))}</div>`; }
+  finally { busy(btn, false); }
+}
+
+function renderTrack(t){
+  const steps = ['งานใหม่', 'รับงานแล้ว', 'กำลังดำเนินการ', 'ดำเนินการเรียบร้อย'];
+  const map = {'งานใหม่':0,'รับงานแล้ว':1,'กำลังดำเนินการ':2,'รอข้อมูล/รออะไหล่':2,'ส่งซ่อมภายนอก':2,'ดำเนินการเรียบร้อย':4};
+  const cur = map[t.status] ?? 0;
+  const stepper = `<div class="stepper">${steps.map((s, i) =>
+    `<div class="step ${i < cur ? 'done' : ''} ${i === cur ? 'current' : ''}"><div class="dot">${i < cur ? '✓' : i + 1}</div>${s}</div>`).join('')}</div>`;
+  $('trackOut').innerHTML = `
+    <div class="m-head mt"><div><div class="muted">เลขที่ใบแจ้ง</div><h2>${esc(t.ticketId)}</h2></div><div>${pbadge(t.priority)} ${badge(t.status)}</div></div>
+    ${t.status === CFG.CANCEL ? '<div class="detail-box">⛔ งานนี้ถูกยกเลิก</div>' : stepper}
+    <div class="info">
+      <div><span>วันที่แจ้ง</span>${esc(t.createdAt)}</div>
+      <div><span>ประเภท</span>${esc(t.category)}</div>
+      <div><span>สถานที่</span>${esc(t.room)}</div>
+      <div><span>ผู้รับผิดชอบ</span>${esc(t.assignee || '-')}</div>
+      <div><span>รับงาน</span>${esc(t.acceptedAt || '-')}</div>
+      <div><span>เสร็จสิ้น</span>${esc(t.closedAt || '-')}</div>
+    </div>
+    <div class="detail-box"><b>รายละเอียดที่แจ้ง</b><p>${esc(t.detail)}</p></div>
+    ${t.imageUrl ? `<div class="detail-box"><b>รูปถ่ายปัญหา</b><br><a href="${esc(t.imageUrl)}" target="_blank"><img src="${esc(t.imageUrl)}" style="max-width:100%;max-height:250px;border-radius:8px;margin-top:6px"></a></div>` : ''}
+    ${t.resolution ? `<div class="detail-box ok"><b>ผลการดำเนินงาน</b><p>${esc(t.resolution)}</p></div>` : ''}
+    <h3 class="sec">ความคืบหน้า</h3>${timeline(t.logs)}`;
+}
+
+function getRecent(){ try { return JSON.parse(localStorage.getItem('itRecent') || '[]'); } catch (e) { return []; } }
+function saveRecent(id){ const r = getRecent().filter(x => x !== id); r.unshift(id); try { localStorage.setItem('itRecent', JSON.stringify(r.slice(0, 5))); } catch (e) {} }
+function renderRecent(){
+  const r = getRecent();
+  $('recent').innerHTML = r.length ? '<span class="muted">ใบแจ้งล่าสุดจากเครื่องนี้: </span>' +
+    r.map(id => `<button class="btn sm light" type="button" onclick="$('tId').value='${esc(id)}';$('tPhone').focus()">${esc(id)}</button>`).join(' ') : '';
+}
+</script>
+</body>
+</html>
