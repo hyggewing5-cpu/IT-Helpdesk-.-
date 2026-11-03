@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <?!= include('Styles'); ?>
+</head>
+<body>
+
+<div id="loginView" class="login-wrap hidden">
+  <div class="login-card">
+    <img class="logo" src="<?= cfg.LOGO_URL ?>" alt="โลโก้" onerror="this.style.display='none'">
+    <h2 style="margin:4px 0 0">เข้าสู่ระบบเจ้าหน้าที่</h2>
+    <p class="muted" style="margin:4px 0 18px"><?= cfg.ORG_NAME ?></p>
+    <form id="frmLogin" class="grid">
+      <div><label>ชื่อผู้ใช้</label><input id="lu" required autocomplete="username"></div>
+      <div><label>รหัสผ่าน</label><input id="lp" type="password" required autocomplete="current-password"></div>
+      <button class="btn block" id="btnLogin">🔐 เข้าสู่ระบบ</button>
+      <a href="<?= cfg.APP_URL ?>" class="center muted" style="font-size:.9rem">← กลับหน้าแจ้งซ่อม</a>
+    </form>
+  </div>
+</div>
+
+<div id="appView" class="hidden" style="flex:1">
+  <header class="topbar"><div class="topbar-inner">
+    <img class="logo" src="<?= cfg.LOGO_URL ?>" alt="โลโก้" onerror="this.style.visibility='hidden'">
+    <div class="brand"><?= cfg.ORG_NAME ?><small>ระบบบริหารจัดการงานแจ้งซ่อม</small></div>
+    <div class="spacer"></div>
+    <span class="chip hide-sm" id="meChip"></span>
+    <button class="chip" onclick="doLogout()">ออกจากระบบ</button>
+  </div></header>
+
+  <main class="container">
+    <div class="tabs" id="nav">
+      <button class="tab active" data-v="dash">📊 Dashboard</button>
+      <button class="tab" data-v="list">📋 รายการงาน</button>
+      <button class="tab" data-v="report">📑 รายงานสรุป</button>
+      <button class="tab admin-only" data-v="users">👥 ผู้ใช้งาน</button>
+      <button class="tab" data-v="me">⚙️ บัญชีของฉัน</button>
+    </div>
+
+    <section id="v-dash">
+      <div class="row-btn no-print" style="justify-content:space-between;margin-bottom:10px">
+        <span class="muted" id="dashTime"></span>
+        <button class="btn sm light" onclick="loadDash()">🔄 รีเฟรช</button>
+      </div>
+      <div class="stats" id="dashCards"></div>
+      <div class="grid g2">
+        <div class="card"><h3>งานค้างแยกตามความเร่งด่วน</h3><div id="dashPrio"></div></div>
+        <div class="card"><h3>สถานะงานทั้งหมด</h3><div id="dashStatus"></div></div>
+      </div>
+      <div class="card"><h3>🔥 งานค้างที่ต้องดำเนินการ</h3><div id="dashUrgent"></div></div>
+    </section>
+
+    <section id="v-list" class="hidden">
+      <div class="card no-print">
+        <div class="filters">
+          <div class="q"><label>ค้นหา</label><input id="fq" placeholder="เลขที่, ชื่อ, สถานที่, รายละเอียด"></div>
+          <div><label>สถานะ</label><select id="fs"></select></div>
+          <div><label>ความเร่งด่วน</label><select id="fp"></select></div>
+          <div><label>ผู้รับผิดชอบ</label><select id="fa"></select></div>
+          <div><label>ตั้งแต่</label><input type="date" id="ff"></div>
+          <div><label>ถึง</label><input type="date" id="ft"></div>
+          <div><button class="btn block" id="btnFilter">ค้นหา</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row-btn" style="justify-content:space-between"><b id="listCount"></b><button class="btn sm light" onclick="clearFilter()">ล้างตัวกรอง</button></div>
+        <div id="listOut" class="mt"></div>
+      </div>
+    </section>
+
+    <section id="v-report" class="hidden">
+      <div class="card no-print">
+        <div class="filters" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+          <div><label>ประเภทรายงาน</label><select id="rType"><option value="daily">รายวัน</option><option value="monthly">รายเดือน</option></select></div>
+          <div class="r-daily"><label>ตั้งแต่วันที่</label><input type="date" id="rFrom"></div>
+          <div class="r-daily"><label>ถึงวันที่</label><input type="date" id="rTo"></div>
+          <div class="r-monthly hidden"><label>ปี (พ.ศ.)</label><select id="rYear"></select></div>
+          <div><button class="btn block" id="btnReport">📑 สร้างรายงาน</button></div>
+          <div><button class="btn block light" onclick="window.print()">🖨️ พิมพ์ / PDF</button></div>
+        </div>
+      </div>
+      <div id="repOut"></div>
+    </section>
+
+    <section id="v-users" class="hidden">
+      <div class="grid g2">
+        <div class="card"><h3>รายชื่อผู้ใช้งาน</h3><div id="userOut"></div></div>
+        <div class="card"><h3 id="uTitle">เพิ่มผู้ใช้งาน</h3>
+          <form id="frmUser" class="grid">
+            <div><label>ชื่อผู้ใช้ (a-z, 0-9)</label><input name="username" required></div>
+            <div><label>ชื่อที่แสดง (ยศ ชื่อ สกุล)</label><input name="displayName" required></div>
+            <div><label>สิทธิ์</label><select name="role"><option value="staff">เจ้าหน้าที่ IT</option><option value="admin">ผู้ดูแลระบบ</option></select></div>
+            <div><label>รหัสผ่าน <small class="muted">(เว้นว่างหากไม่เปลี่ยน)</small></label><input name="password" type="password" autocomplete="new-password"></div>
+            <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="active" checked style="width:auto"> เปิดใช้งาน</label>
+            <div class="row-btn"><button type="button" class="btn light" onclick="resetUserForm()">ล้าง</button><button class="btn" id="btnUser">💾 บันทึก</button></div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section id="v-me" class="hidden">
+      <div class="card" style="max-width:480px">
+        <h3>เปลี่ยนรหัสผ่าน</h3>
+        <form id="frmPw" class="grid">
+          <div><label>รหัสผ่านเดิม</label><input id="pw0" type="password" required autocomplete="current-password"></div>
+          <div><label>รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)</label><input id="pw1" type="password" required minlength="8" autocomplete="new-password"></div>
+          <div><label>ยืนยันรหัสผ่านใหม่</label><input id="pw2" type="password" required minlength="8" autocomplete="new-password"></div>
+          <button class="btn" id="btnPw">บันทึกรหัสผ่านใหม่</button>
+        </form>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer class="footer"><div class="footer-inner">
+  <div>© <span id="yr"></span> <?= cfg.ORG_NAME ?></div>
+  <div class="dev">พัฒนาโดย <b><?= cfg.DEV_NAME ?></b><br><?= cfg.DEV_POSITION ?> · โทร. <a href="tel:<?= cfg.DEV_PHONE ?>"><?= cfg.DEV_PHONE ?></a></div>
+</div></footer>
+
+<?!= include('Common'); ?>
+<script>
+const CFG = <?!= JSON.stringify(cfg) ?>;
+let TOKEN = sessionStorage.getItem('itToken') || '';
+let ME = null, TECHS = [], CUR = null, VIEW = 'dash', USERS = [], DASH_CARDS = [];
+
+$('yr').textContent = new Date().getFullYear() + 543;
+
+const opts = (arr, sel, blank) => (blank !== undefined ? `<option value="">${esc(blank)}</option>` : '') +
+  arr.map(x => { const v = typeof x === 'object' ? x.v : x, l = typeof x === 'object' ? x.l : x;
+    return `<option value="${esc(v)}" ${v === sel ? 'selected' : ''}>${esc(l)}</option>`; }).join('');
+const todayStr = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+
+async function api(fn, ...args){
+  try { return await call(fn, TOKEN, ...args); }
+  catch (e) {
+    if (errMsg(e).indexOf('SESSION_EXPIRED') >= 0) { resetSession(); throw new Error('หมดเวลาการใช้งาน กรุณาเข้าสู่ระบบใหม่'); }
+    throw e;
+  }
+}
+function resetSession(){ TOKEN = ''; sessionStorage.removeItem('itToken'); closeModal(); $('appView').classList.add('hidden'); $('loginView').classList.remove('hidden'); }
+
+(async function init(){
+  $('fs').innerHTML = opts([{v:'OPEN', l:'งานค้างทั้งหมด'}, {v:'OVERDUE', l:'เกินกำหนด SLA'}, ...CFG.STATUSES], '', 'ทุกสถานะ');
+  $('fp').innerHTML = opts(CFG.PRIORITIES, '', 'ทั้งหมด');
+  const y = new Date().getFullYear();
+  $('rYear').innerHTML = [y, y - 1, y - 2].map(v => `<option value="${v}">${v + 543}</option>`).join('');
+  $('rFrom').value = todayStr().slice(0, 8) + '01'; $('rTo').value = todayStr();
+  if (TOKEN) { try { startApp(await api('getBootstrap')); return; } catch (e) {} }
+  resetSession();
+})();
+
+function startApp(b){
+  ME = b.user; TECHS = b.technicians || [];
+  $('meChip').textContent = '👤 ' + ME.displayName;
+  document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('hidden', ME.role !== 'admin'));
+  $('fa').innerHTML = opts(TECHS, '', 'ทั้งหมด');
+  $('loginView').classList.add('hidden'); $('appView').classList.remove('hidden');
+  go('dash');
+}
+
+$('frmLogin').addEventListener('submit', async e => {
+  e.preventDefault();
+  const b = $('btnLogin'); busy(b, true, 'กำลังตรวจสอบ...');
+  try {
+    const r = await call('login', $('lu').value, $('lp').value);
+    TOKEN = r.token; sessionStorage.setItem('itToken', TOKEN); $('lp').value = '';
+    startApp(await api('getBootstrap'));
+    toast('ยินดีต้อนรับ ' + r.user.displayName, 'success');
+  } catch (err) { toast(errMsg(err), 'error'); }
+  finally { busy(b, false); }
+});
+async function doLogout(){ try { await call('logout', TOKEN); } catch (e) {} resetSession(); }
+
+document.querySelectorAll('#nav .tab').forEach(b => b.onclick = () => go(b.dataset.v));
+function go(v, filter){
+  VIEW = v;
+  document.querySelectorAll('#nav .tab').forEach(b => b.classList.toggle('active', b.dataset.v === v));
+  ['dash', 'list', 'report', 'users', 'me'].forEach(x => $('v-' + x).classList.toggle('hidden', x !== v));
+  if (v === 'dash') loadDash();
+  if (v === 'list') { if (filter) applyFilter(filter); loadList(); }
+  if (v === 'report' && !$('repOut').innerHTML) loadReport();
+  if (v === 'users') loadUsers();
+}
+function refreshView(){ if (VIEW === 'dash') loadDash(true); if (VIEW === 'list') loadList(); }
+
+function bars(list){
+  if (!list || !list.length) return '<div class="empty">ไม่มีข้อมูล</div>';
+  const max = Math.max(1, ...list.map(x => x.count));
+  return list.map(x => `<div class="bar-row"><span>${esc(x.name)}</span><div class="bar"><i style="width:${x.count * 100 / max}%"></i></div><b style="text-align:right">${x.count}</b></div>`).join('');
+}
+function ticketTable(rows){
+  if (!rows || !rows.length) return '<div class="empty">ไม่มีรายการ</div>';
+  return `<div class="table-wrap"><table class="tbl resp"><thead><tr>
+    <th>เลขที่</th><th>วันที่แจ้ง</th><th>ผู้แจ้ง / สถานที่</th><th>ประเภท / รายละเอียด</th><th>ความเร่งด่วน</th><th>สถานะ</th><th>ผู้รับผิดชอบ</th>
+  </tr></thead><tbody>${rows.map(t => `
+    <tr class="click" onclick="openTicket('${esc(t.ticketId)}')">
+      <td data-label="เลขที่"><b>${esc(t.ticketId)}</b>${t.overdue ? '<br><span class="badge p-crit">เกินกำหนด</span>' : ''}</td>
+      <td data-label="วันที่แจ้ง">${esc(t.createdAt)}</td>
+      <td data-label="ผู้แจ้ง">${esc(t.reporterName)}<br><span class="muted">${esc(t.room)}</span></td>
+      <td data-label="รายละเอียด"><b>${esc(t.category)}</b>${t.imageUrl ? ' 🖼️' : ''}<div class="clip muted">${esc(t.detail)}</div></td>
+      <td data-label="ความเร่งด่วน">${pbadge(t.priority)}</td>
+      <td data-label="สถานะ">${badge(t.status)}</td>
+      <td data-label="ผู้รับผิดชอบ">${esc(t.assignee || '-')}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+async function loadDash(silent){
+  if (!silent) $('dashCards').innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  try {
+    const d = await api('getDashboard'), s = d.byStatus;
+    DASH_CARDS = [
+      ['🆕 งานใหม่', s['งานใหม่'], 'c-new', {status:'งานใหม่'}],
+      ['📥 รับงานแล้ว', s['รับงานแล้ว'], 'c-acc', {status:'รับงานแล้ว'}],
+      ['🔧 กำลังดำเนินการ', s['กำลังดำเนินการ'], 'c-prog', {status:'กำลังดำเนินการ'}],
+      ['⏳ รอข้อมูล/รออะไหล่', s['รอข้อมูล/รออะไหล่'], 'c-wait', {status:'รอข้อมูล/รออะไหล่'}],
+      ['🚚 ส่งซ่อมภายนอก', s['ส่งซ่อมภายนอก'], 'c-ext', {status:'ส่งซ่อมภายนอก'}],
+      ['✅ ดำเนินการเรียบร้อย', s[CFG.DONE], 'c-done', {status:CFG.DONE}],
+      ['⛔ ยกเลิก', s[CFG.CANCEL], 'c-cancel', {status:CFG.CANCEL}],
+      ['📌 งานค้างทั้งหมด', d.open, 'c-open', {status:'OPEN'}],
+      ['⚠️ เกินกำหนด SLA', d.overdue, 'c-over', {status:'OVERDUE'}],
+      ['📅 แจ้งวันนี้', d.today, 'c-today', {from:d.todayKey, to:d.todayKey}],
+      ['🗓️ แจ้งเดือนนี้', d.month, 'c-acc', {from:d.monthStart, to:d.todayKey}]
+    ];
+    $('dashCards').innerHTML = DASH_CARDS.map((c, i) =>
+      `<div class="stat click ${c[2]}" onclick="go('list', DASH_CARDS[${i}][3])"><div class="lbl">${c[0]}</div><div class="num">${c[1] || 0}</div></div>`).join('');
+    $('dashPrio').innerHTML = bars(CFG.PRIORITIES.map(p => ({name:p, count:d.byPriority[p] || 0})));
+    $('dashStatus').innerHTML = bars(CFG.STATUSES.map(x => ({name:x, count:s[x] || 0})));
+    $('dashUrgent').innerHTML = ticketTable(d.urgent);
+    $('dashTime').textContent = 'อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH');
+  } catch (e) { if (!silent) toast(errMsg(e), 'error'); }
+}
+setInterval(() => { if (TOKEN && VIEW === 'dash' && !document.hidden && !$('modal').classList.contains('show')) loadDash(true); }, 60000);
+
+$('btnFilter').onclick = loadList;
+$('fq').addEventListener('keydown', e => { if (e.key === 'Enter') loadList(); });
+function applyFilter(f){ $('fq').value = f.q || ''; $('fs').value = f.status || ''; $('fp').value = f.priority || ''; $('fa').value = f.assignee || ''; $('ff').value = f.from || ''; $('ft').value = f.to || ''; }
+function clearFilter(){ applyFilter({}); loadList(); }
+async function loadList(){
+  const f = {q:$('fq').value.trim(), status:$('fs').value, priority:$('fp').value, assignee:$('fa').value, from:$('ff').value, to:$('ft').value};
+  $('listOut').innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  try {
+    const r = await api('listTickets', f);
+    $('listCount').textContent = `พบ ${r.total} รายการ`;
+    $('listOut').innerHTML = ticketTable(r.rows);
+  } catch (e) { $('listOut').innerHTML = ''; toast(errMsg(e), 'error'); }
+}
+
+async function openTicket(id){
+  openModal('<div class="loading">กำลังโหลด...</div>');
+  try { renderTicket(await api('getTicket', id)); }
+  catch (e) { closeModal(); toast(errMsg(e), 'error'); }
+}
+function techsWith(name){ return name && TECHS.indexOf(name) < 0 ? [name, ...TECHS] : TECHS; }
+function info(l, v){ return `<div><span>${l}</span>${esc(v || '-')}</div>`; }
+
+function renderTicket(r){
+  const t = r.ticket; CUR = t;
+  $('modalBody').innerHTML = `
+    <div class="m-head">
+      <div><div class="muted">เลขที่ใบแจ้ง</div><h2>${esc(t.ticketId)}</h2></div>
+      <div>${pbadge(t.priority)} ${badge(t.status)} ${t.overdue ? '<span class="badge p-crit">เกินกำหนด</span>' : ''}</div>
+    </div>
+    <div class="info">
+      ${info('ผู้แจ้ง', t.reporterName)}${info('หน่วยงาน', t.department)}${info('สถานที่', t.room)}
+      <div><span>โทร</span><a href="tel:${esc(t.phone)}">${esc(t.phone)}</a></div>
+      ${info('ประเภท', t.category)}${info('ครุภัณฑ์', t.assetCode)}
+      ${info('วันที่แจ้ง', t.createdAt)}${info('รับงาน', t.acceptedAt)}${info('ปิดงาน', t.closedAt)}
+      ${info('ผู้รับผิดชอบ', t.assignee)}${info('รูปแบบ', t.method)}${info('แก้ไขล่าสุดโดย', t.updatedBy)}
+    </div>
+    <div class="detail-box"><b>รายละเอียดปัญหา</b><p>${esc(t.detail)}</p></div>
+    ${t.imageUrl ? `<div class="detail-box"><b>รูปถ่ายปัญหา</b><br><a href="${esc(t.imageUrl)}" target="_blank"><img src="${esc(t.imageUrl)}" style="max-width:100%;max-height:300px;border-radius:8px;margin-top:6px"></a></div>` : ''}
+    ${t.resolution ? `<div class="detail-box ok"><b>สรุปผลการแก้ไข</b><p>${esc(t.resolution)}</p></div>` : ''}
+    ${t.status === CFG.NEW ? `<button class="btn ok block" onclick="acceptJob(this)">📥 รับงานนี้ (${esc(ME.displayName)})</button>` : ''}
+
+    <h3 class="sec">บันทึกการดำเนินงาน</h3>
+    <form id="frmUpd" class="grid g2">
+      <div><label>สถานะ</label><select name="status">${opts(CFG.STATUSES, t.status)}</select></div>
+      <div><label>ความเร่งด่วน</label><select name="priority">${opts(CFG.PRIORITIES, t.priority)}</select></div>
+      <div><label>ผู้รับผิดชอบ</label><select name="assignee">${opts(techsWith(t.assignee), t.assignee, '— ยังไม่ระบุ —')}</select></div>
+      <div><label>ผู้ดำเนินการ (ครั้งนี้)</label><select name="actor">${opts(techsWith(ME.displayName), ME.displayName)}</select></div>
+      <div class="span2"><label>รูปแบบการดำเนินการ</label><select name="method">${opts(CFG.METHODS, t.method || CFG.METHODS[0])}</select></div>
+      <div class="span2"><label>รายละเอียดการตรวจสอบ/ซ่อม</label><textarea name="detail" placeholder="อาการที่พบ สาเหตุ วิธีดำเนินการ"></textarea></div>
+      <div class="span2"><label>รายการแก้ไข / อะไหล่ที่ใช้</label><textarea name="fixList" placeholder="เช่น เปลี่ยน RAM 8GB"></textarea></div>
+      <div class="span2"><label>สรุปผลการแก้ไข <small class="muted">(จำเป็นเมื่อปิดงาน)</small></label><textarea name="resolution">${esc(t.resolution)}</textarea></div>
+      <div class="span2 row-btn">
+        <button type="button" class="btn light" onclick="closeModal()">ปิดหน้าต่าง</button>
+        <button type="button" class="btn ok" onclick="quickDone()">✅ ปิดงานเรียบร้อย</button>
+        <button class="btn" id="btnSave">💾 บันทึก</button>
+      </div>
+    </form>
+    <h3 class="sec">ประวัติการดำเนินงาน</h3>${timeline(r.logs)}`;
+  $('frmUpd').addEventListener('submit', e => { e.preventDefault(); saveTicket(e.target); });
+}
+
+async function acceptJob(btn){
+  busy(btn, true, 'กำลังรับงาน...');
+  try { renderTicket(await api('acceptTicket', CUR.ticketId)); toast('รับงานเรียบร้อย', 'success'); refreshView(); }
+  catch (e) { toast(errMsg(e), 'error'); busy(btn, false); }
+}
+function quickDone(){
+  const f = $('frmUpd');
+  f.elements['status'].value = CFG.DONE;
+  if (!f.elements['resolution'].value.trim()) { toast('กรุณากรอกสรุปผลก่อนปิดงาน', 'error'); f.elements['resolution'].focus(); return; }
+  saveTicket(f);
+}
+async function saveTicket(form){
+  const p = Object.fromEntries(new FormData(form)); p.ticketId = CUR.ticketId;
+  if (p.status === CFG.DONE && !p.resolution.trim()) { toast('กรุณาระบุสรุปผลการแก้ไขก่อนปิดงาน', 'error'); return; }
+  const b = $('btnSave'); busy(b, true, 'กำลังบันทึก...');
+  try { renderTicket(await api('updateTicket', p)); toast('บันทึกเรียบร้อย', 'success'); refreshView(); }
+  catch (e) { toast(errMsg(e), 'error'); busy(b, false); }
+}
+
+$('rType').onchange = () => {
+  const m = $('rType').value === 'monthly';
+  document.querySelectorAll('.r-daily').forEach(x => x.classList.toggle('hidden', m));
+  document.querySelectorAll('.r-monthly').forEach(x => x.classList.toggle('hidden', !m));
+};
+$('btnReport').onclick = loadReport;
+async function loadReport(){
+  const b = $('btnReport'); busy(b, true, 'กำลังประมวลผล...');
+  $('repOut').innerHTML = '<div class="loading">กำลังประมวลผล...</div>';
+  try { renderReport(await api('getReport', {type:$('rType').value, from:$('rFrom').value, to:$('rTo').value, year:$('rYear').value})); }
+  catch (e) { $('repOut').innerHTML = ''; toast(errMsg(e), 'error'); }
+  finally { busy(b, false); }
+}
+function renderReport(r){
+  const s = r.summary, max = Math.max(1, ...r.table.map(x => x.total));
+  const st = (l, v, c) => `<div class="stat ${c}"><div class="lbl">${l}</div><div class="num">${v}</div></div>`;
+  const sum = k => r.table.reduce((a, x) => a + x[k], 0);
+  const groups = [['แยกตามประเภทงาน','byCategory'],['แยกตามความเร่งด่วน','byPriority'],['แยกตามผู้รับผิดชอบ','byAssignee'],['แยกตามรูปแบบ','byMethod'],['แยกตามหน่วยงาน','byDepartment'],['แยกตามสถานะ','byStatus']];
+  $('repOut').innerHTML = `
+    <div class="card"><div style="display:flex;gap:12px;align-items:center">
+      <img class="logo" src="${esc(CFG.LOGO_URL)}" onerror="this.style.display='none'">
+      <div><h2 style="margin:0;font-size:1.2rem">${esc(r.title)}</h2><div class="muted">${esc(CFG.ORG_NAME)}</div></div>
+    </div></div>
+    <div class="stats">${st('งานทั้งหมด', s.total, 'c-new')}${st('เรียบร้อย', s.done, 'c-done')}${st('ค้าง', s.open, 'c-prog')}${st('อัตราสำเร็จ', s.rate + '%', 'c-open')}</div>
+    <div class="card"><h3>สรุปผล</h3><div class="table-wrap"><table class="tbl"><thead><tr><th>ช่วง</th><th>แจ้ง</th><th>เรียบร้อย</th><th>ค้าง</th><th>ยกเลิก</th><th style="width:35%">สัดส่วน</th></tr></thead><tbody>
+    ${r.table.map(x => `<tr><td>${esc(x.label)}</td><td>${x.total}</td><td>${x.done}</td><td>${x.open}</td><td>${x.cancel}</td><td><div class="bar"><i style="width:${x.total * 100 / max}%"></i></div></td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>รวม</td><td>${sum('total')}</td><td>${sum('done')}</td><td>${sum('open')}</td><td>${sum('cancel')}</td><td></td></tr></tfoot></table></div></div>
+    <div class="grid g2">${groups.map(g => `<div class="card"><h3>${g[0]}</h3>${bars(r[g[1]])}</div>`).join('')}</div>
+    <div class="card"><h3>รายละเอียด (${r.details.length} รายการ)</h3>${ticketTable(r.details)}</div>`;
+}
+
+async function loadUsers(){
+  $('userOut').innerHTML = '<div class="loading">กำลังโหลด...</div>';
+  try { USERS = await api('listUsers'); renderUsers(); } catch (e) { toast(errMsg(e), 'error'); }
+}
+function renderUsers(){
+  $('userOut').innerHTML = `<div class="table-wrap"><table class="tbl resp"><thead><tr><th>ผู้ใช้</th><th>ชื่อ</th><th>สิทธิ์</th><th>สถานะ</th><th></th></tr></thead><tbody>
+  ${USERS.map((u, i) => `<tr><td data-label="ผู้ใช้"><b>${esc(u.username)}</b></td><td data-label="ชื่อ">${esc(u.displayName)}</td><td data-label="สิทธิ์">${u.role === 'admin' ? 'Admin' : 'Staff'}</td><td data-label="สถานะ">${u.active ? 'ใช้งาน' : 'ปิด'}</td><td><button class="btn sm light" onclick="editUser(${i})">แก้ไข</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+function editUser(i){
+  const u = USERS[i], f = $('frmUser').elements;
+  f.username.value = u.username; f.username.readOnly = true; f.displayName.value = u.displayName;
+  f.role.value = u.role; f.active.checked = u.active; f.password.value = '';
+  $('uTitle').textContent = 'แก้ไข: ' + u.username;
+}
+function resetUserForm(){ const f = $('frmUser'); f.reset(); f.elements.username.readOnly = false; $('uTitle').textContent = 'เพิ่มผู้ใช้งาน'; }
+$('frmUser').addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.target.elements, b = $('btnUser');
+  const p = {username:f.username.value, displayName:f.displayName.value, role:f.role.value, active:f.active.checked, password:f.password.value};
+  busy(b, true, 'กำลังบันทึก...');
+  try {
+    USERS = await api('saveUser', p); renderUsers(); resetUserForm();
+    TECHS = (await api('getBootstrap')).technicians; $('fa').innerHTML = opts(TECHS, '', 'ทั้งหมด');
+    toast('บันทึกเรียบร้อย', 'success');
+  } catch (err) { toast(errMsg(err), 'error'); }
+  finally { busy(b, false); }
+});
+
+$('frmPw').addEventListener('submit', async e => {
+  e.preventDefault();
+  if ($('pw1').value !== $('pw2').value) return toast('รหัสผ่านใหม่ไม่ตรงกัน', 'error');
+  const b = $('btnPw'); busy(b, true, 'กำลังบันทึก...');
+  try { await api('changePassword', $('pw0').value, $('pw1').value); e.target.reset(); toast('เปลี่ยนรหัสผ่านเรียบร้อย', 'success'); }
+  catch (err) { toast(errMsg(err), 'error'); }
+  finally { busy(b, false); }
+});
+</script>
+</body>
+</html>
