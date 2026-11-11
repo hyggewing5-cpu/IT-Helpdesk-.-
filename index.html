@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ระบบแจ้งซ่อมงานสารสนเทศ | รพ.กองบิน บน.5</title>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:'Sarabun',sans-serif;min-height:100vh;display:flex;flex-direction:column;background:linear-gradient(135deg,#0b1f4d,#1e3a8a 60%,#2563eb);color:#0f172a}
+    header{display:flex;align-items:center;gap:12px;padding:14px 18px;color:#fff;max-width:1100px;width:100%;margin:auto}
+    header img{width:52px;height:52px;border-radius:12px;background:#fff;object-fit:contain;padding:4px}
+    header b{font-family:'Prompt';font-size:1.1rem}
+    main{flex:1;display:flex;align-items:center;justify-content:center;padding:20px}
+    .card{background:#fff;border-radius:22px;padding:32px 26px;max-width:520px;width:100%;text-align:center;box-shadow:0 25px 60px rgba(0,0,0,.35)}
+    h1{font-family:'Prompt';color:#1e3a8a;margin:0 0 6px;font-size:1.5rem}
+    p{color:#64748b;margin:0 0 20px}
+    .btn{display:block;padding:14px;border-radius:12px;text-decoration:none;font-family:'Prompt';font-size:1.05rem;margin-bottom:10px;background:#2563eb;color:#fff}
+    .btn.alt{background:#e2e8f0;color:#0f172a}
+    #qr{margin-top:14px;width:170px;height:170px}
+    footer{color:#cbd5e1;font-size:.85rem;padding:14px 18px;text-align:right;max-width:1100px;width:100%;margin:auto}
+    footer b{color:#fff}
+  </style>
+</head>
+<body>
+  <header>
+    <img src="https://drive.google.com/thumbnail?id=1cDgXeobqDuwGD2WtMKu9hNm1qFAmxgK_&sz=w400" alt="โลโก้" onerror="this.style.display='none'">
+    <div><b>สารสนเทศ รพ.กองบิน บน.5</b><br><small>ระบบแจ้งซ่อมงานสารสนเทศ</small></div>
+  </header>
+  <main>
+    <div class="card">
+      <h1>ระบบแจ้งซ่อมงานสารสนเทศ</h1>
+      <p>แจ้งซ่อม ติดตามงาน และแนบรูปถ่ายปัญหาได้ทั้งคอมพิวเตอร์และมือถือ</p>
+      <a class="btn" id="goReport" href="#">📝 แจ้งซ่อม / ติดตามงาน</a>
+      <a class="btn alt" id="goAdmin" href="#">🔐 สำหรับเจ้าหน้าที่</a>
+      <img id="qr" alt="QR Code แจ้งซ่อม">
+      <p style="margin:6px 0 0;font-size:.85rem">สแกน QR Code เพื่อแจ้งซ่อมผ่านมือถือ</p>
+    </div>
+  </main>
+  <footer>พัฒนาโดย <b>พ.อ.อ.วีรพจน์ ยิ้มเยาะ</b><br>สมนส.ฝูง.501 บน.5 · โทร. 6-0449</footer>
+  <script>
+    // ใส่ URL ที่ได้จากการ Deploy Apps Script (ลงท้าย /exec)
+    const WEBAPP_URL = 'https://script.google.com/macros/s/ใส่_DEPLOYMENT_ID/exec';
+    document.getElementById('goReport').href = WEBAPP_URL;
+    document.getElementById('goAdmin').href = WEBAPP_URL + '?page=admin';
+    document.getElementById('qr').src = 'https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=' + encodeURIComponent(WEBAPP_URL);
+  </script>
+</body>
+</html>
