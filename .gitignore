@@ -1,0 +1,15 @@
+# clasp (มี scriptId ของโปรเจกต์)
+.clasp.json
+.clasprc.json
+
+# ความลับ / การตั้งค่าเครื่อง
+.env
+*.key
+*.pem
+
+# ระบบปฏิบัติการ / เครื่องมือแก้ไข
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+node_modules/
